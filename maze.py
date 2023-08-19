@@ -1,10 +1,9 @@
 """Maze generator and solver."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from time import sleep
 from tkinter import Tk, BOTH, Canvas
 from typing import List
-from time import sleep
-import threading
 
 DEFAULT_WIDTH = 5
 
@@ -74,7 +73,7 @@ class MazeFactory:
         return cells
 
 @dataclass
-class Maze:
+class Maze(Drawable):
     """Represents a maze."""
     x1: int
     y1: int
@@ -90,6 +89,35 @@ class Maze:
         if self._cells is None:
             self._cells = MazeFactory.create_cells(self.x1, self.y1, self.num_rows, self.num_cols, self.cell_size_x, self.cell_size_y)
         return self._cells
+
+    def draw(self, canvas: Canvas) -> None:
+        """Draw the maze on the given canvas."""
+        for row in self.cells:
+            for cell in row:
+                cell.draw(canvas)
+
+    def toggle_cell_walls(self, row: int, col: int):
+        """Toggle the walls of a specific cell and its neighbors."""
+        cell = self.cells[row][col]
+
+        # Toggle the walls of the current cell
+        cell.has_left_wall = not cell.has_left_wall
+        cell.has_top_wall = not cell.has_top_wall
+        cell.has_right_wall = not cell.has_right_wall
+        cell.has_bottom_wall = not cell.has_bottom_wall
+
+        # Toggle the corresponding walls of neighboring cells
+        if row > 0 and cell.has_top_wall == False:
+            self.cells[row-1][col].has_bottom_wall = not self.cells[row-1][col].has_bottom_wall
+        if row < self.num_rows - 1 and cell.has_bottom_wall == False:
+            self.cells[row+1][col].has_top_wall = not self.cells[row+1][col].has_top_wall
+        if col > 0 and cell.has_left_wall == False:
+            self.cells[row][col-1].has_right_wall = not self.cells[row][col-1].has_right_wall
+        if col < self.num_cols - 1 and cell.has_right_wall == False:
+            self.cells[row][col+1].has_left_wall = not self.cells[row][col+1].has_left_wall
+
+    def __str__(self) -> str:
+        return super().__str__() + f"({self.x1}, {self.y1}) ({self.num_rows}, {self.num_cols})"
 
 class Window:
     """A window with a canvas to draw on."""
@@ -120,8 +148,10 @@ class Window:
     def draw(self, drawable: Drawable) -> None:
         """Draw the given drawable object on the canvas."""
         drawable.draw(self.__canvas)
+        self._animate()
 
     def draw_move(self, from_cell: Cell, to_cell: Cell, undo : bool = False):
+        """Draw a move from one cell to another."""
         color: str = "gray" if undo else "red"
         from_x: int = (from_cell.x1 + from_cell.x2) // 2
         from_y: int = (from_cell.y1 + from_cell.y2) // 2
@@ -130,10 +160,10 @@ class Window:
         line: Line = Line(Point(from_x, from_y), Point(to_x, to_y), color)
         self.draw(line)
 
-    def draw_maze(self, maze: Maze) -> None:
-        for row in maze.cells:
-            for cell in row:
-                self.draw(cell)
+    def _animate(self):
+        """Animate the window."""
+        self._redraw()
+        sleep(0.05)
 
 
 if __name__ == "__main__":
@@ -146,6 +176,6 @@ if __name__ == "__main__":
     win: Window = Window(WIDTH, HEIGHT)
 
     maze: Maze = Maze(START_X, START_Y, HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE, CELL_SIZE, CELL_SIZE)
-    win.draw_maze(maze)
+    win.draw(maze)
 
     win.wait_for_close()
