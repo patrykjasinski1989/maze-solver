@@ -3,8 +3,10 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from tkinter import Tk, BOTH, Canvas
 from typing import List
+from time import sleep
+import threading
 
-DEFAULT_WIDTH = 2
+DEFAULT_WIDTH = 5
 
 class Drawable(ABC):
     @abstractmethod
@@ -55,6 +57,40 @@ class Cell(Drawable):
         if self.has_bottom_wall:
             canvas.create_line(self.x1, self.y2, self.x2, self.y2, fill=self.color, width=self.width)
 
+class MazeFactory:
+    """Factory to create maze cells."""
+    @staticmethod
+    def create_cells(x1: int, y1: int, num_rows: int, num_cols: int, cell_size_x: int, cell_size_y: int) -> List[List[Cell]]:
+        """Create the cells for the maze."""
+        cells: List[List[Cell]] = []
+        for row in range(num_rows):
+            cells.append([])
+            for col in range(num_cols):
+                x_start: int = x1 + col * cell_size_x
+                y_start: int = y1 + row * cell_size_y
+                x_end: int = x_start + cell_size_x
+                y_end: int = y_start + cell_size_y
+                cells[row].append(Cell(x_start, y_start, x_end, y_end))
+        return cells
+
+@dataclass
+class Maze:
+    """Represents a maze."""
+    x1: int
+    y1: int
+    num_rows: int
+    num_cols: int
+    cell_size_x: int
+    cell_size_y: int
+    _cells: List[List[Cell]] = None
+
+    @property
+    def cells(self) -> List[List[Cell]]:
+        """Lazy initialization of cells."""
+        if self._cells is None:
+            self._cells = MazeFactory.create_cells(self.x1, self.y1, self.num_rows, self.num_cols, self.cell_size_x, self.cell_size_y)
+        return self._cells
+
 class Window:
     """A window with a canvas to draw on."""
     def __init__(self, width: int, height: int) -> None:
@@ -94,36 +130,22 @@ class Window:
         line: Line = Line(Point(from_x, from_y), Point(to_x, to_y), color)
         self.draw(line)
 
+    def draw_maze(self, maze: Maze) -> None:
+        for row in maze.cells:
+            for cell in row:
+                self.draw(cell)
+
 
 if __name__ == "__main__":
     WIDTH : int = 800
     HEIGHT : int = 600
-    HALF_WIDTH : int = WIDTH // 2
-    HALF_HEIGHT : int = HEIGHT // 2
+    CELL_SIZE: int = 50
+    START_X: int = 2
+    START_Y: int = 2
 
     win: Window = Window(WIDTH, HEIGHT)
 
-    lines: List[Line] = [
-        Line(Point(0, 0), Point(WIDTH, HEIGHT), "red"),
-        Line(Point(0, HEIGHT), Point(WIDTH, 0), "black"),
-        Line(Point(0, HALF_HEIGHT), Point(WIDTH, HALF_HEIGHT), "green"),
-        Line(Point(HALF_WIDTH, 0), Point(HALF_WIDTH, HEIGHT), "blue")
-    ]
-
-    for line in lines:
-        win.draw(line)
-
-    cells: List[Cell] = [
-        Cell(50, 50, 150, 150),
-        Cell(200, 50, 300, 150, has_right_wall=False),
-        Cell(350, 50, 450, 150, has_bottom_wall=False),
-        Cell(500, 50, 600, 150, has_left_wall=False, has_top_wall=False),
-        Cell(650, 50, 750, 150, has_right_wall=False, has_bottom_wall=False)
-    ]
-
-    for cell in cells:
-        win.draw(cell)
-
-    win.draw_move(cells[2], cells[3])
+    maze: Maze = Maze(START_X, START_Y, HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    win.draw_maze(maze)
 
     win.wait_for_close()
