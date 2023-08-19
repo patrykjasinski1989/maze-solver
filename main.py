@@ -2,6 +2,7 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from tkinter import Tk, BOTH, Canvas
+from typing import List
 
 DEFAULT_WIDTH = 2
 
@@ -84,16 +85,25 @@ class Window:
         """Draw the given drawable object on the canvas."""
         drawable.draw(self.__canvas)
 
+    def draw_move(self, from_cell: Cell, to_cell: Cell, undo : bool = False):
+        color: str = "gray" if undo else "red"
+        from_x: int = (from_cell.x1 + from_cell.x2) // 2
+        from_y: int = (from_cell.y1 + from_cell.y2) // 2
+        to_x: int = (to_cell.x1 + to_cell.x2) // 2
+        to_y: int = (to_cell.y1 + to_cell.y2) // 2
+        line: Line = Line(Point(from_x, from_y), Point(to_x, to_y), color)
+        self.draw(line)
+
 
 if __name__ == "__main__":
-    WIDTH = 800
-    HEIGHT = 600
-    HALF_WIDTH = WIDTH // 2
-    HALF_HEIGHT = HEIGHT // 2
+    WIDTH : int = 800
+    HEIGHT : int = 600
+    HALF_WIDTH : int = WIDTH // 2
+    HALF_HEIGHT : int = HEIGHT // 2
 
-    win = Window(WIDTH, HEIGHT)
+    win: Window = Window(WIDTH, HEIGHT)
 
-    lines = [
+    lines: List[Line] = [
         Line(Point(0, 0), Point(WIDTH, HEIGHT), "red"),
         Line(Point(0, HEIGHT), Point(WIDTH, 0), "black"),
         Line(Point(0, HALF_HEIGHT), Point(WIDTH, HALF_HEIGHT), "green"),
@@ -103,7 +113,17 @@ if __name__ == "__main__":
     for line in lines:
         win.draw(line)
 
-    cell = Cell(HALF_WIDTH / 2, HALF_HEIGHT / 2, HALF_WIDTH * 3 / 2, HALF_HEIGHT * 3 / 2)
-    win.draw(cell)
+    cells: List[Cell] = [
+        Cell(50, 50, 150, 150),
+        Cell(200, 50, 300, 150, has_right_wall=False),
+        Cell(350, 50, 450, 150, has_bottom_wall=False),
+        Cell(500, 50, 600, 150, has_left_wall=False, has_top_wall=False),
+        Cell(650, 50, 750, 150, has_right_wall=False, has_bottom_wall=False)
+    ]
+
+    for cell in cells:
+        win.draw(cell)
+
+    win.draw_move(cells[2], cells[3])
 
     win.wait_for_close()
