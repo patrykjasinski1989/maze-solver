@@ -1,11 +1,13 @@
 """Maze generator and solver."""
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from random import shuffle
 from time import sleep
 from tkinter import Tk, BOTH, Canvas
 from typing import List
 
 DEFAULT_WIDTH = 5
+BACKGROUND_COLOR = "white"
 
 class Drawable(ABC):
     @abstractmethod
@@ -44,17 +46,25 @@ class Cell(Drawable):
     has_bottom_wall: bool = True
     color: str = "black"
     width: int = DEFAULT_WIDTH
+    visited: bool = False
 
     def draw(self, canvas: Canvas) -> None:
         """Draw the cell on the given canvas."""
+        line_options = {
+            "fill": self.color,
+            "width": self.width,
+            "joinstyle": "round",  # Round the junctions between connected segments
+            "capstyle": "round"   # Round the endpoints of the lines
+        }
         if self.has_top_wall:
-            canvas.create_line(self.x1, self.y1, self.x2, self.y1, fill=self.color, width=self.width)
+            canvas.create_line(self.x1, self.y1, self.x2, self.y1, **line_options)
         if self.has_left_wall:
-            canvas.create_line(self.x1, self.y1, self.x1, self.y2, fill=self.color, width=self.width)
+            canvas.create_line(self.x1, self.y1, self.x1, self.y2, **line_options)
         if self.has_right_wall:
-            canvas.create_line(self.x2, self.y1, self.x2, self.y2, fill=self.color, width=self.width)
+            canvas.create_line(self.x2, self.y1, self.x2, self.y2, **line_options)
         if self.has_bottom_wall:
-            canvas.create_line(self.x1, self.y2, self.x2, self.y2, fill=self.color, width=self.width)
+            canvas.create_line(self.x1, self.y2, self.x2, self.y2, **line_options)
+
 
 class MazeFactory:
     """Factory to create maze cells."""
@@ -82,6 +92,7 @@ class Maze(Drawable):
     cell_size_x: int
     cell_size_y: int
     _cells: List[List[Cell]] = None
+    seed: int = None
 
     @property
     def cells(self) -> List[List[Cell]]:
@@ -97,27 +108,75 @@ class Maze(Drawable):
                 cell.draw(canvas)
 
     def toggle_cell_walls(self, row: int, col: int):
-        """Toggle the walls of a specific cell and its neighbors."""
+        """Toggle the walls of a specific cell."""
         cell = self.cells[row][col]
-
         # Toggle the walls of the current cell
         cell.has_left_wall = not cell.has_left_wall
         cell.has_top_wall = not cell.has_top_wall
         cell.has_right_wall = not cell.has_right_wall
         cell.has_bottom_wall = not cell.has_bottom_wall
 
-        # Toggle the corresponding walls of neighboring cells
-        if row > 0 and cell.has_top_wall == False:
-            self.cells[row-1][col].has_bottom_wall = not self.cells[row-1][col].has_bottom_wall
-        if row < self.num_rows - 1 and cell.has_bottom_wall == False:
-            self.cells[row+1][col].has_top_wall = not self.cells[row+1][col].has_top_wall
-        if col > 0 and cell.has_left_wall == False:
-            self.cells[row][col-1].has_right_wall = not self.cells[row][col-1].has_right_wall
-        if col < self.num_cols - 1 and cell.has_right_wall == False:
-            self.cells[row][col+1].has_left_wall = not self.cells[row][col+1].has_left_wall
+    def _break_entrance_and_exit(self):
+        entrance = self.cells[0][0]
+        entrance.has_left_wall = False
+        entrance.has_top_wall = False
 
-    def __str__(self) -> str:
-        return super().__str__() + f"({self.x1}, {self.y1}) ({self.num_rows}, {self.num_cols})"
+        exit = self.cells[self.num_rows-1][self.num_cols-1]
+        exit.has_right_wall = False
+        exit.has_bottom_wall = False
+
+    def _break_walls_r(self, cell: Cell, i: int, j: int):
+        """The recursive break_walls_r method is a breadth-first traversal through the cells, breaking down walls as it goes."""
+        cell.visited = True
+        neighbors, indices = self._get_neighbors(i, j)
+
+        # Shuffle the neighbors to introduce randomness
+        combined = list(zip(neighbors, indices))
+        shuffle(combined)
+        neighbors, indices = zip(*combined)
+
+        for idx, neighbor in enumerate(neighbors):
+            ni, nj = indices[idx]
+            if not neighbor.visited:
+                self._break_walls_between(cell, i, j, neighbor, ni, nj)
+                self._break_walls_r(neighbor, ni, nj)
+
+    def _get_neighbors(self, i: int, j: int):
+        """Get the neighbors of the current cell."""
+        neighbors = []
+        indices = []
+        if i > 0:
+            neighbors.append(self.cells[i-1][j])
+            indices.append((i-1, j))
+        if j > 0:
+            neighbors.append(self.cells[i][j-1])
+            indices.append((i, j-1))
+        if i < self.num_rows - 1:
+            neighbors.append(self.cells[i+1][j])
+            indices.append((i+1, j))
+        if j < self.num_cols - 1:
+            neighbors.append(self.cells[i][j+1])
+            indices.append((i, j+1))
+        return neighbors, indices
+
+    def _break_walls_between(self, cell1, i1, j1, cell2, i2, j2):
+        """Break the walls between two cells."""
+        if i1 == i2:  # Cells are in the same row
+            if j1 < j2:  # cell1 is to the left of cell2
+                cell1.has_right_wall = False
+                cell2.has_left_wall = False
+            else:  # cell1 is to the right of cell2
+                cell1.has_left_wall = False
+                cell2.has_right_wall = False
+        elif j1 == j2:  # Cells are in the same column
+            if i1 < i2:  # cell1 is above cell2
+                cell1.has_bottom_wall = False
+                cell2.has_top_wall = False
+            else:  # cell1 is below cell2
+                cell1.has_top_wall = False
+                cell2.has_bottom_wall = False
+        else:
+            raise Exception("Cells are not adjacent")
 
 class Window:
     """A window with a canvas to draw on."""
@@ -125,6 +184,7 @@ class Window:
         self.__root = Tk()
         self.__root.title("Maze Solver")
         self.__canvas = Canvas(self.__root, width=width, height=height)
+        self.__canvas.configure(background=BACKGROUND_COLOR)
         self.__canvas.pack(fill=BOTH, expand=1)
         self.__running = False
         self.__root.protocol("WM_DELETE_WINDOW", self.close)
@@ -167,15 +227,21 @@ class Window:
 
 
 if __name__ == "__main__":
-    WIDTH : int = 800
-    HEIGHT : int = 600
+    MARGIN : int = 20  
+    START_X : int = MARGIN
+    START_Y : int = MARGIN
+    WIDTH : int = 1024 - 2 * MARGIN
+    HEIGHT : int = 768 - 2 * MARGIN
     CELL_SIZE: int = 50
-    START_X: int = 2
-    START_Y: int = 2
+    NUM_ROWS = HEIGHT // CELL_SIZE
+    NUM_COLS = WIDTH // CELL_SIZE
+
 
     win: Window = Window(WIDTH, HEIGHT)
 
-    maze: Maze = Maze(START_X, START_Y, HEIGHT // CELL_SIZE, WIDTH // CELL_SIZE, CELL_SIZE, CELL_SIZE)
+    maze: Maze = Maze(START_X, START_Y, NUM_ROWS, NUM_COLS, CELL_SIZE, CELL_SIZE, seed=0)
+    maze._break_entrance_and_exit()
+    maze._break_walls_r(maze.cells[0][0], 0, 0)
     win.draw(maze)
 
     win.wait_for_close()
