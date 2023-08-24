@@ -31,7 +31,13 @@ class Line(Drawable):
 
     def draw(self, canvas: Canvas) -> None:
         """Draw the line on the given canvas."""
-        canvas.create_line(self.p1.x, self.p1.y, self.p2.x, self.p2.y, fill=self.color, width=self.width)
+        line_options = {
+            "fill": self.color,
+            "width": self.width,
+            "joinstyle": "round",  # Round the junctions between connected segments
+            "capstyle": "round"   # Round the endpoints of the lines
+        }
+        canvas.create_line(self.p1.x, self.p1.y, self.p2.x, self.p2.y, **line_options)
 
 @dataclass
 class Cell(Drawable):
@@ -184,6 +190,41 @@ class Maze(Drawable):
             for cell in row:
                 cell.visited = False
 
+    def solve(self, window : 'Window' = None):
+        return self._solve_r(self.cells[0][0], i=0, j=0, window=window)
+
+    def _solve_r(self, cell, i, j, window : 'Window' = None):
+        """A depth-first solution to the maze.
+        The _solve_r method returns True if the current cell is an end cell, OR if it leads to the end cell.
+        It returns False if the current cell is a loser cell."""
+        cell.visited = True
+
+        if i == self.num_rows - 1 and j == self.num_cols - 1:
+            return True
+
+        neighbors, indices = self._get_neighbors(i, j)
+
+        combined = list(zip(neighbors, indices))
+        shuffle(combined)
+        neighbors, indices = zip(*combined)
+
+        for idx, neighbor in enumerate(neighbors):
+            ni, nj = indices[idx]
+            if not neighbor.visited:
+                if (i == ni and j < nj and not cell.has_right_wall) or \
+                (i == ni and j > nj and not cell.has_left_wall) or \
+                (j == nj and i < ni and not cell.has_bottom_wall) or \
+                (j == nj and i > ni and not cell.has_top_wall):
+
+                    window.draw_move(cell, neighbor)
+
+                    if self._solve_r(neighbor, ni, nj, window):
+                        return True
+
+                    window.draw_move(cell, neighbor, undo=True)
+
+        return False
+
 class Window:
     """A window with a canvas to draw on."""
     def __init__(self, width: int, height: int) -> None:
@@ -229,7 +270,7 @@ class Window:
     def _animate(self):
         """Animate the window."""
         self._redraw()
-        sleep(0.05)
+        sleep(0.01)
 
 
 if __name__ == "__main__":
@@ -239,8 +280,8 @@ if __name__ == "__main__":
     WIDTH : int = 1024 - 2 * MARGIN
     HEIGHT : int = 768 - 2 * MARGIN
     CELL_SIZE: int = 50
-    NUM_ROWS = HEIGHT // CELL_SIZE
-    NUM_COLS = WIDTH // CELL_SIZE
+    NUM_ROWS : int = HEIGHT // CELL_SIZE
+    NUM_COLS : int = WIDTH // CELL_SIZE
 
     win: Window = Window(WIDTH, HEIGHT)
     maze: Maze = Maze(START_X, START_Y, NUM_ROWS, NUM_COLS, CELL_SIZE, CELL_SIZE, seed=0)
@@ -250,4 +291,6 @@ if __name__ == "__main__":
     maze._reset_cells_visited()
 
     win.draw(maze)
+    maze.solve(win)
+
     win.wait_for_close()
