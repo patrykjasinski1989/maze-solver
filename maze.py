@@ -178,6 +178,12 @@ class Maze(Drawable):
         else:
             raise Exception("Cells are not adjacent")
 
+    def _reset_cells_visited(self):
+        """Reset the visited flag of all cells."""
+        for row in self.cells:
+            for cell in row:
+                cell.visited = False
+
 class Window:
     """A window with a canvas to draw on."""
     def __init__(self, width: int, height: int) -> None:
@@ -227,7 +233,7 @@ class Window:
 
 
 if __name__ == "__main__":
-    MARGIN : int = 20  
+    MARGIN : int = 20
     START_X : int = MARGIN
     START_Y : int = MARGIN
     WIDTH : int = 1024 - 2 * MARGIN
@@ -236,12 +242,12 @@ if __name__ == "__main__":
     NUM_ROWS = HEIGHT // CELL_SIZE
     NUM_COLS = WIDTH // CELL_SIZE
 
-
     win: Window = Window(WIDTH, HEIGHT)
-
     maze: Maze = Maze(START_X, START_Y, NUM_ROWS, NUM_COLS, CELL_SIZE, CELL_SIZE, seed=0)
+
     maze._break_entrance_and_exit()
     maze._break_walls_r(maze.cells[0][0], 0, 0)
-    win.draw(maze)
+    maze._reset_cells_visited()
 
+    win.draw(maze)
     win.wait_for_close()
