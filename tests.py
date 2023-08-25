@@ -73,6 +73,25 @@ class Tests(unittest.TestCase):
             for cell in row:
                 self.assertFalse(cell.visited)
 
+    def test_maze_solving_path_exists(self):
+        """Test that a path exists from entrance to exit after solving."""
+        self.maze = Maze(0, 0, 5, 5, 10, 10)
+        self.maze.generate()
+        solution_steps = self.maze.solve()
+        entrance = self.maze.cells[0][0]
+        exit = self.maze.cells[self.maze.num_rows-1][self.maze.num_cols-1]
+        self.assertIn(entrance, [step[0] for step in solution_steps])
+        self.assertIn(exit, [step[1] for step in solution_steps])
+
+    def test_break_walls_between_adjacent_cells(self):
+        """Test breaking walls between two adjacent cells."""
+        self.maze = Maze(0, 0, 5, 5, 10, 10)
+        cell1 = self.maze.cells[1][1]
+        cell2 = self.maze.cells[1][2]
+        self.maze._break_walls_between(cell1, 1, 1, cell2, 1, 2)
+        self.assertFalse(cell1.has_right_wall)
+        self.assertFalse(cell2.has_left_wall)
+
 
 if __name__ == "__main__":
     unittest.main()
