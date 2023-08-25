@@ -57,9 +57,9 @@ class Window:
         """Draw the given maze."""
         maze.draw(self.__canvas)
 
-    def animate_solution(self, maze: Maze):
+    def animate_solution(self, maze: Maze, algorithm: str):
         """Animate the solution of the given maze."""
-        solution_steps = maze.solve()
+        solution_steps = maze.solve(algorithm=algorithm)
         for from_cell, to_cell, is_undo in solution_steps:
             self.draw_move(from_cell, to_cell, is_undo)
 

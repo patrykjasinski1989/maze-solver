@@ -123,10 +123,17 @@ class Maze(Drawable):
         self._break_walls_r(self.cells[0][0], 0, 0)
         self._reset_cells_visited()
 
-    def solve(self) -> List[Tuple[Cell, Cell]]:
+    def solve(self, algorithm : str = "dfs") -> List[Tuple[Cell, Cell]]:
         """Compute a solution to the maze and return a list of steps."""
         steps = []
-        self._solve_r(self.cells[0][0], 0, 0, steps)
+        if algorithm == "dfs":
+            self._solve_r(self.cells[0][0], 0, 0, steps)
+        elif algorithm == "a_star":
+            start = self.cells[0][0]
+            end = self.cells[self.num_rows - 1][self.num_cols - 1]
+            steps = self.a_star_search(start, end)
+        else:
+            raise ValueError(f"Unknown algorithm: {algorithm}")
         return steps
 
     def _solve_r(self, cell : Cell, i : int, j : int, steps: List[Tuple[Cell, Cell, bool]]):
@@ -159,3 +166,82 @@ class Maze(Drawable):
                     steps.append((cell, neighbor, True))  # True indicates it's an undo step
 
         return False
+
+    def manhattan_distance(self, cell1, cell2):
+        return abs(cell1.x1 - cell2.x1) + abs(cell1.y1 - cell2.y1)
+
+    def reconstruct_path(self, came_from, current):
+        path = [current]
+        while current in came_from:
+            current = came_from[current]
+            path.append(current)
+        path.reverse()
+
+        # Convert the list of cells to the expected format
+        solution_steps = []
+        for i in range(len(path) - 1):
+            solution_steps.append((path[i], path[i + 1], False))
+        return solution_steps
+
+    def get_cell_position(self, cell: Cell) -> Tuple[int, int]:
+        """Return the row and column indices of a given cell."""
+        for i, row in enumerate(self.cells):
+            for j, current_cell in enumerate(row):
+                if current_cell == cell:
+                    return i, j
+        raise ValueError("Cell not found in the maze.")
+
+    def _get_valid_neighbors(self, i: int, j: int, current_cell: Cell):
+        """Get the neighboring cells of the current cell that can be reached without crossing a wall."""
+        neighbors = []
+        indices = []
+        if i > 0 and not current_cell.has_top_wall:
+            neighbors.append(self.cells[i-1][j])
+            indices.append((i-1, j))
+        if j > 0 and not current_cell.has_left_wall:
+            neighbors.append(self.cells[i][j-1])
+            indices.append((i, j-1))
+        if i < self.num_rows - 1 and not current_cell.has_bottom_wall:
+            neighbors.append(self.cells[i+1][j])
+            indices.append((i+1, j))
+        if j < self.num_cols - 1 and not current_cell.has_right_wall:
+            neighbors.append(self.cells[i][j+1])
+            indices.append((i, j+1))
+        return neighbors, indices
+
+    def a_star_search(self, start, end):
+        open_set = [start]
+        closed_set = []
+        came_from = {}
+
+        g = {cell: float('inf') for row in self.cells for cell in row}
+        g[start] = 0
+
+        f = {cell: float('inf') for row in self.cells for cell in row}
+        f[start] = self.manhattan_distance(start, end)
+
+        while open_set:
+            current = min(open_set, key=lambda x: f[x])
+            if current == end:
+                return self.reconstruct_path(came_from, current)
+
+            open_set.remove(current)
+            closed_set.append(current)
+
+            i, j = self.get_cell_position(current)
+            neighbors, _ = self._get_valid_neighbors(i, j, current)  # Unpack neighbors and their indices
+            for neighbor in neighbors:  # Use only the Cell objects for the A* logic
+                if neighbor in closed_set:
+                    continue
+                tentative_g_score = g[current] + 1
+
+                if neighbor not in open_set:
+                    open_set.append(neighbor)
+                elif tentative_g_score >= g[neighbor]:
+                    continue
+
+                came_from[neighbor] = current
+                g[neighbor] = tentative_g_score
+                f[neighbor] = g[neighbor] + self.manhattan_distance(neighbor, end)
+
+        return []

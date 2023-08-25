@@ -22,7 +22,7 @@ def main():
     maze.generate()
 
     win.draw_maze(maze)
-    win.animate_solution(maze)
+    win.animate_solution(maze, algorithm="a_star")
     win.wait_for_close()
 
 if __name__ == "__main__":

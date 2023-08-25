@@ -73,3 +73,11 @@ class Cell(Drawable):
             canvas.create_line(self.x2, self.y1, self.x2, self.y2, **line_options)
         if self.has_bottom_wall:
             canvas.create_line(self.x1, self.y2, self.x2, self.y2, **line_options)
+
+    def __hash__(self):
+        return hash((self.x1, self.y1, self.x2, self.y2))
+
+    def __eq__(self, other):
+        if isinstance(other, Cell):
+            return self.x1 == other.x1 and self.y1 == other.y1 and self.x2 == other.x2 and self.y2 == other.y2
+        return False
